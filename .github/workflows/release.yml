@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
   pull-requests: write
 
 jobs:
@@ -19,15 +20,28 @@ jobs:
       minor: ${{ steps.release.outputs.minor }}
       patch: ${{ steps.release.outputs.patch }}
     steps:
+      - name: Validate release token
+        shell: bash
+        env:
+          RELEASE_PLEASE_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+        run: |
+          if [[ -n "${RELEASE_PLEASE_TOKEN}" ]]; then
+            echo "Using RELEASE_PLEASE_TOKEN for release-please."
+            exit 0
+          fi
+
+          echo "::error title=Missing RELEASE_PLEASE_TOKEN::release-please cannot create PRs with the current repository settings unless you enable 'Allow GitHub Actions to create and approve pull requests'. Configure the RELEASE_PLEASE_TOKEN secret with a PAT, or enable that repository setting before rerunning this workflow."
+          exit 1
+
       - uses: googleapis/release-please-action@v4
         id: release
         with:
-          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           release-type: simple
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-  # 릴리즈 생성 시 빌드 산출물 첨부
+  # Build artifacts only after a GitHub release was created.
   build-and-upload:
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created }}
@@ -35,7 +49,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: 릴리즈 정보 출력
+      - name: Print release metadata
         run: |
-          echo "릴리즈 태그: ${{ needs.release-please.outputs.tag_name }}"
-          echo "버전: ${{ needs.release-please.outputs.major }}.${{ needs.release-please.outputs.minor }}.${{ needs.release-please.outputs.patch }}"
+          echo "Release tag: ${{ needs.release-please.outputs.tag_name }}"
+          echo "Version: ${{ needs.release-please.outputs.major }}.${{ needs.release-please.outputs.minor }}.${{ needs.release-please.outputs.patch }}"
