@@ -34,6 +34,13 @@ agent/dist/
 agent/build/
 *.spec
 
+# Temp / test artifacts
+.test-temp/
+release/
+.tmp/
+_tmp_pkg/
+backend/pytest-cache-files-*/
+
 # Logs
 *.log
 logs/
