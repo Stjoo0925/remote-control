@@ -1,0 +1,45 @@
+name: remote_control_agent
+description: 사내 원격 제어 - 피제어측 에이전트 앱
+version: 0.1.0+1
+publish_to: none
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Rust 브릿지
+  flutter_rust_bridge: ^2.0.0
+
+  # 네트워크
+  socket_io_client: ^2.0.3
+  http: ^1.2.0
+
+  # 시스템 트레이 (데스크탑)
+  system_tray: ^2.0.3
+  window_manager: ^0.3.8
+
+  # 로컬 알림
+  flutter_local_notifications: ^17.0.0
+
+  # 보안 저장소
+  flutter_secure_storage: ^9.0.0
+
+  # 상태 관리
+  flutter_riverpod: ^2.5.0
+
+  # 유틸
+  shared_preferences: ^2.2.0
+  package_info_plus: ^8.0.0
+  logger: ^2.3.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  ffigen: ^12.0.0
+
+flutter:
+  uses-material-design: true
