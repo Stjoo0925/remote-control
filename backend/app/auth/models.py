@@ -59,7 +59,7 @@ class TokenResponse(BaseModel):
 
 
 class UserInfo(BaseModel):
-    id: str
+    id: uuid.UUID
     username: str
     email: str
     display_name: str

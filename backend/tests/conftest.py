@@ -10,6 +10,7 @@ from app.main import socket_app
 from app.database import Base, get_db
 from app.auth.models import User, UserRole
 from app.auth.jwt_service import jwt_service
+from app.common.middleware import RateLimitMiddleware
 
 # 테스트용 인메모리 SQLite (PostgreSQL 없이도 테스트 가능)
 TEST_DB_URL = "sqlite+aiosqlite:///:memory:"
@@ -39,7 +40,12 @@ async def db() -> AsyncSession:
 async def client(db: AsyncSession) -> AsyncClient:
     """테스트용 HTTP 클라이언트 (DB 세션 주입)"""
     async def override_get_db():
-        yield db
+        try:
+            yield db
+            await db.commit()
+        except Exception:
+            await db.rollback()
+            raise
 
     from app.main import app
     app.dependency_overrides[get_db] = override_get_db
@@ -48,6 +54,14 @@ async def client(db: AsyncSession) -> AsyncClient:
         yield c
 
     app.dependency_overrides.clear()
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def disable_rate_limit(monkeypatch: pytest.MonkeyPatch):
+    async def passthrough(self, request, call_next):
+        return await call_next(request)
+
+    monkeypatch.setattr(RateLimitMiddleware, "dispatch", passthrough)
 
 
 @pytest_asyncio.fixture

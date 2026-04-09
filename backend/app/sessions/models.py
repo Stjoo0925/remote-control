@@ -52,10 +52,10 @@ class CreateSessionRequest(BaseModel):
 
 
 class SessionResponse(BaseModel):
-    id: str
+    id: uuid.UUID
     status: SessionStatus
-    controller_id: str
-    target_id: str
+    controller_id: uuid.UUID
+    target_id: uuid.UUID
     started_at: Optional[datetime]
     created_at: datetime
 

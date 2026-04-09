@@ -12,7 +12,7 @@
 #   - 임시 파일은 서버 /tmp/rc_transfers/ 에 저장, 24시간 후 자동 삭제
 
 import logging
-import os
+import tempfile
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -34,11 +34,18 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/file-transfers", tags=["file-transfer"])
 
 # 서버 임시 저장 디렉토리
-TRANSFER_DIR = Path("/tmp/rc_transfers")
+TRANSFER_DIR = Path(tempfile.gettempdir()) / "rc_transfers"
 TRANSFER_DIR.mkdir(parents=True, exist_ok=True)
 
 MAX_FILE_SIZE = 512 * 1024 * 1024  # 512 MB
 CHUNK_SIZE    = 1 * 1024 * 1024    # 1 MB
+
+
+def _parse_uuid(value: str, detail: str) -> uuid.UUID:
+    try:
+        return uuid.UUID(value)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail=detail)
 
 
 def _assert_session_participant(session: Session, user: User) -> None:
@@ -64,7 +71,8 @@ async def init_transfer(
         raise HTTPException(status_code=400, detail="파일 크기가 올바르지 않습니다.")
 
     # 세션 조회 + 참여자 검증
-    result = await db.execute(select(Session).where(Session.id == body.session_id))
+    session_id = _parse_uuid(body.session_id, "?몄뀡 ID媛 ?щ컮瑜댁? ?딆뒿?덈떎.")
+    result = await db.execute(select(Session).where(Session.id == session_id))
     session = result.scalar_one_or_none()
     if not session:
         raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다.")
@@ -84,6 +92,7 @@ async def init_transfer(
         storage_path=storage_path,
     )
     db.add(transfer)
+    await db.flush()
 
     logger.info(
         "파일 전송 초기화 — id=%s file=%s size=%d sender=%s",
@@ -108,7 +117,8 @@ async def upload_chunk(
     청크 업로드. Content-Range 헤더 필수.
     예: Content-Range: bytes 0-1048575/10485760
     """
-    result = await db.execute(select(FileTransfer).where(FileTransfer.id == transfer_id))
+    parsed_transfer_id = _parse_uuid(transfer_id, "?꾩넚 ID媛 ?щ컮瑜댁? ?딆뒿?덈떎.")
+    result = await db.execute(select(FileTransfer).where(FileTransfer.id == parsed_transfer_id))
     transfer = result.scalar_one_or_none()
     if not transfer:
         raise HTTPException(status_code=404, detail="전송 정보를 찾을 수 없습니다.")
@@ -152,7 +162,8 @@ async def complete_transfer(
     db: AsyncSession = Depends(get_db),
 ):
     """모든 청크 업로드 완료 후 호출. 수신측 다운로드 가능 상태로 전환."""
-    result = await db.execute(select(FileTransfer).where(FileTransfer.id == transfer_id))
+    parsed_transfer_id = _parse_uuid(transfer_id, "?꾩넚 ID媛 ?щ컮瑜댁? ?딆뒿?덈떎.")
+    result = await db.execute(select(FileTransfer).where(FileTransfer.id == parsed_transfer_id))
     transfer = result.scalar_one_or_none()
     if not transfer:
         raise HTTPException(status_code=404, detail="전송 정보를 찾을 수 없습니다.")
@@ -189,13 +200,14 @@ async def download_file(
     """수신측이 파일을 다운로드합니다. 세션 참여자만 가능."""
     from fastapi.responses import FileResponse
 
-    result = await db.execute(select(FileTransfer).where(FileTransfer.id == transfer_id))
+    parsed_transfer_id = _parse_uuid(transfer_id, "?꾩넚 ID媛 ?щ컮瑜댁? ?딆뒿?덈떎.")
+    result = await db.execute(select(FileTransfer).where(FileTransfer.id == parsed_transfer_id))
     transfer = result.scalar_one_or_none()
     if not transfer:
         raise HTTPException(status_code=404, detail="전송 정보를 찾을 수 없습니다.")
 
     # 세션 참여자 검증
-    sess_result = await db.execute(select(Session).where(Session.id == str(transfer.session_id)))
+    sess_result = await db.execute(select(Session).where(Session.id == transfer.session_id))
     session = sess_result.scalar_one_or_none()
     if session:
         _assert_session_participant(session, current_user)
@@ -223,7 +235,8 @@ async def list_session_transfers(
     db: AsyncSession = Depends(get_db),
 ):
     """세션에 속한 파일 전송 목록"""
-    sess_result = await db.execute(select(Session).where(Session.id == session_id))
+    parsed_session_id = _parse_uuid(session_id, "?몄뀡 ID媛 ?щ컮瑜댁? ?딆뒿?덈떎.")
+    sess_result = await db.execute(select(Session).where(Session.id == parsed_session_id))
     session = sess_result.scalar_one_or_none()
     if not session:
         raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다.")
@@ -231,7 +244,7 @@ async def list_session_transfers(
 
     result = await db.execute(
         select(FileTransfer)
-        .where(FileTransfer.session_id == session_id)
+        .where(FileTransfer.session_id == parsed_session_id)
         .order_by(FileTransfer.created_at.desc())
     )
     return result.scalars().all()

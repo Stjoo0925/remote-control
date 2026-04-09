@@ -103,7 +103,7 @@ class TestCreateSession:
         assert res.status_code == 201
         session_id = res.json()["id"]
 
-        result = await db.execute(select(Session).where(Session.id == session_id))
+        result = await db.execute(select(Session).where(Session.id == uuid.UUID(session_id)))
         db_session = result.scalar_one_or_none()
         assert db_session is not None
         assert db_session.status == SessionStatus.pending
@@ -237,7 +237,7 @@ class TestEndSession:
 
         # DB 상태 확인
         await db.reset()  # 세션 캐시 초기화
-        result = await db.execute(select(Session).where(Session.id == session_id))
+        result = await db.execute(select(Session).where(Session.id == uuid.UUID(session_id)))
         db_session = result.scalar_one_or_none()
         assert db_session is not None
         assert db_session.status == SessionStatus.ended

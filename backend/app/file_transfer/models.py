@@ -55,9 +55,9 @@ class InitTransferRequest(BaseModel):
 
 
 class TransferResponse(BaseModel):
-    id: str
-    session_id: str
-    sender_id: str
+    id: uuid.UUID
+    session_id: uuid.UUID
+    sender_id: uuid.UUID
     direction: TransferDirection
     filename: str
     mime_type: str

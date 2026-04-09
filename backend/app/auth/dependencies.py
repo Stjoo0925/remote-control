@@ -1,5 +1,6 @@
 # FastAPI 의존성 — 현재 사용자 추출 및 역할 검증
 
+import uuid
 from typing import Annotated
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -24,7 +25,11 @@ async def get_current_user(
     if not payload or payload.get("type") != "access":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="유효하지 않은 토큰입니다.")
 
-    user_id = payload.get("sub")
+    try:
+        user_id = uuid.UUID(payload.get("sub", ""))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="?좏슚?섏? ?딆? ?좏겙?낅땲??")
+
     result = await db.execute(select(User).where(User.id == user_id, User.is_active == True))
     user = result.scalar_one_or_none()
 

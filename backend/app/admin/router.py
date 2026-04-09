@@ -1,3 +1,5 @@
+import uuid
+
 # 관리자 API 라우터 (ROLE_ADMIN 전용)
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -11,6 +13,13 @@ from app.auth.models import User, AuditLog, RoleUpdateRequest, UserInfo
 from app.sessions.models import Session, SessionStatus, SessionResponse
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
+
+
+def _parse_uuid(value: str) -> uuid.UUID:
+    try:
+        return uuid.UUID(value)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="invalid id")
 
 
 @router.get("/sessions", response_model=list[SessionResponse])
@@ -34,7 +43,8 @@ async def force_end_session(
     db: AsyncSession = Depends(get_db),
 ):
     """세션 강제 종료"""
-    result = await db.execute(select(Session).where(Session.id == session_id))
+    parsed_session_id = _parse_uuid(session_id)
+    result = await db.execute(select(Session).where(Session.id == parsed_session_id))
     session = result.scalar_one_or_none()
     if not session:
         raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다.")
@@ -73,7 +83,8 @@ async def update_user_role(
     db: AsyncSession = Depends(get_db),
 ):
     """사용자 역할 변경"""
-    result = await db.execute(select(User).where(User.id == user_id))
+    parsed_user_id = _parse_uuid(user_id)
+    result = await db.execute(select(User).where(User.id == parsed_user_id))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")

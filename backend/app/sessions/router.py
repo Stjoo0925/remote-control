@@ -1,6 +1,7 @@
 # 세션 API 라우터
 
 import logging
+import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -12,6 +13,13 @@ from app.sessions.models import Session, SessionStatus, CreateSessionRequest, Se
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/sessions", tags=["sessions"])
+
+
+def _parse_uuid(value: str) -> uuid.UUID:
+    try:
+        return uuid.UUID(value)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="?몄뀡 ID媛 ?щ컮瑜댁? ?딆뒿?덈떎.")
 
 
 @router.post("", response_model=SessionResponse, status_code=status.HTTP_201_CREATED)
@@ -56,7 +64,8 @@ async def list_sessions(current_user: CurrentUser, db: AsyncSession = Depends(ge
 
 @router.get("/{session_id}", response_model=SessionResponse)
 async def get_session(session_id: str, current_user: CurrentUser, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Session).where(Session.id == session_id))
+    parsed_session_id = _parse_uuid(session_id)
+    result = await db.execute(select(Session).where(Session.id == parsed_session_id))
     session = result.scalar_one_or_none()
     if not session:
         raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다.")
@@ -70,7 +79,8 @@ async def get_session(session_id: str, current_user: CurrentUser, db: AsyncSessi
 async def end_session(session_id: str, current_user: CurrentUser, db: AsyncSession = Depends(get_db)):
     """세션 종료"""
     from datetime import datetime, timezone
-    result = await db.execute(select(Session).where(Session.id == session_id))
+    parsed_session_id = _parse_uuid(session_id)
+    result = await db.execute(select(Session).where(Session.id == parsed_session_id))
     session = result.scalar_one_or_none()
     if not session:
         raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다.")

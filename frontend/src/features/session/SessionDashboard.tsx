@@ -386,4 +386,3 @@ function NewSessionModal({
     </div>
   );
 }
- 
