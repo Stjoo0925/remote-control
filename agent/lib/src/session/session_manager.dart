@@ -9,9 +9,12 @@
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:logger/logger.dart';
 
+import '../clipboard/clipboard_manager.dart';
 import '../consent/consent_dialog.dart';
+import '../file_transfer/file_transfer_manager.dart';
 import '../platform/android_service.dart';
 import '../stream/screen_streamer.dart';
 import '../tray/tray_app.dart';
@@ -54,9 +57,13 @@ class SessionState {
 
 class SessionManager {
   final _logger = Logger();
+  final _storage = const FlutterSecureStorage();
 
   final _signaling = SignalingClient();
-  final _streamer = ScreenStreamer();
+  final _streamer  = ScreenStreamer();
+
+  ClipboardManager? _clipboardMgr;
+  FileTransferManager? _fileMgr;
 
   SessionStatus _status = SessionStatus.idle;
   String? _sessionId;
@@ -98,6 +105,7 @@ class SessionManager {
         onOffer: _onOffer,
         onIceCandidate: _onIceCandidate,
         onSessionEnded: _onSessionEnded,
+        onSwitchMonitor: _onSwitchMonitor,
       ),
       platform: _getPlatform(),
     );
@@ -135,6 +143,9 @@ class SessionManager {
       _signaling.approveSession(sessionId);
       _signaling.joinRoom(sessionId);
       _logger.i('세션 승인: $sessionId');
+
+      // 클립보드 동기화 + 파일 수신 관리자 시작
+      await _startAuxManagers(sessionId, controllerName);
     } else {
       _updateStatus(SessionStatus.idle);
       _controllerUsername = null;
@@ -166,13 +177,63 @@ class SessionManager {
     await _streamer.addIceCandidate(candidateJson);
   }
 
+  /// 모니터 전환 요청 수신 (Controller → Agent)
+  Future<void> _onSwitchMonitor(int monitorIndex) async {
+    _logger.i('모니터 전환 요청: $monitorIndex번');
+    await _streamer.switchMonitor(monitorIndex);
+  }
+
   /// 세션 종료 이벤트
   void _onSessionEnded(String sessionId) {
     _logger.i('세션 종료: $sessionId');
     _streamer.stop();
+    _stopAuxManagers();
     _sessionId = null;
     _controllerUsername = null;
     _updateStatus(SessionStatus.idle);
+  }
+
+  // ──────────────────────────────────────────────
+  // 보조 관리자 (클립보드 / 파일 전송)
+  // ──────────────────────────────────────────────
+
+  Future<void> _startAuxManagers(String sessionId, String peerUsername) async {
+    final serverUrl  = await _storage.read(key: 'server_url') ?? '';
+    final token      = await _storage.read(key: 'access_token') ?? '';
+    final socket     = _signaling.socket;
+    if (socket == null) return;
+
+    _clipboardMgr = ClipboardManager(
+      socket: socket,
+      sessionId: sessionId,
+      peerUsername: peerUsername,
+      isController: false, // Agent는 피제어측
+    );
+    _clipboardMgr!.start();
+
+    _fileMgr = FileTransferManager(
+      socket: socket,
+      sessionId: sessionId,
+      serverBaseUrl: '$serverUrl/api',
+      accessToken: token,
+      onTransferStarted: (info) {
+        _logger.i('파일 수신 시작: ${info.filename}');
+      },
+      onTransferCompleted: (info) {
+        _logger.i('파일 저장 완료: ${info.savedPath}');
+      },
+      onTransferFailed: (id) {
+        _logger.w('파일 수신 실패: $id');
+      },
+    );
+    _fileMgr!.start();
+  }
+
+  void _stopAuxManagers() {
+    _clipboardMgr?.stop();
+    _clipboardMgr = null;
+    _fileMgr?.stop();
+    _fileMgr = null;
   }
 
   // ──────────────────────────────────────────────
@@ -183,6 +244,7 @@ class SessionManager {
     if (_sessionId != null) {
       _signaling.endSession(_sessionId!, reason: 'user_force_end');
       _streamer.stop();
+      _stopAuxManagers();
       _sessionId = null;
       _controllerUsername = null;
       _updateStatus(SessionStatus.idle);
@@ -195,6 +257,7 @@ class SessionManager {
   // ──────────────────────────────────────────────
 
   Future<void> dispose() async {
+    _stopAuxManagers();
     await _streamer.stop();
     _signaling.disconnect();
   }

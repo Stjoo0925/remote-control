@@ -32,12 +32,16 @@ class SignalingCallbacks {
   /// 세션 종료
   final void Function(String sessionId)? onSessionEnded;
 
+  /// 모니터 전환 요청 (monitor_index)
+  final void Function(int monitorIndex)? onSwitchMonitor;
+
   const SignalingCallbacks({
     this.onOffer,
     this.onAnswer,
     this.onIceCandidate,
     this.onConnectionRequest,
     this.onSessionEnded,
+    this.onSwitchMonitor,
   });
 }
 
@@ -96,6 +100,7 @@ class SignalingClient {
       ..on('answer', _handleAnswer)
       ..on('ice_candidate', _handleIceCandidate)
       ..on('session_ended', _handleSessionEnded)
+      ..on('switch_monitor', _handleSwitchMonitor)
       ..connect();
   }
 
@@ -161,6 +166,13 @@ class SignalingClient {
     final sessionId = map['session_id'] as String? ?? '';
     _logger.i('세션 종료 수신: $sessionId');
     _callbacks?.onSessionEnded?.call(sessionId);
+  }
+
+  void _handleSwitchMonitor(dynamic data) {
+    final map = _toMap(data);
+    final monitorIndex = (map['monitor_index'] as num?)?.toInt() ?? 0;
+    _logger.i('모니터 전환 요청 수신: $monitorIndex번');
+    _callbacks?.onSwitchMonitor?.call(monitorIndex);
   }
 
   // ──────────────────────────────────────────────
@@ -229,4 +241,8 @@ class SignalingClient {
 
   bool get isConnected => _connected;
   String? get username => _myUsername;
+
+  /// 보조 관리자(ClipboardManager, FileTransferManager)가
+  /// 소켓에 직접 이벤트 리스너를 등록할 수 있도록 소켓 노출
+  io.Socket? get socket => _socket;
 }

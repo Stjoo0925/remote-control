@@ -115,3 +115,88 @@ async def session_ended(sid, data):
     session_id = data.get("session_id")
     await sio.emit("session_ended", data, room=session_id, skip_sid=sid)
     logger.info("세션 종료 — session=%s", session_id)
+
+
+# ─────────────────────────────────────────────────────────────
+# 채팅
+# ─────────────────────────────────────────────────────────────
+
+@sio.event
+async def chat_message(sid, data):
+    """세션 내 채팅 메시지 중계
+    data: { session_id, text, sender_name, timestamp }
+    """
+    user = _connected_users.get(sid)
+    if not user:
+        return
+
+    session_id = data.get("session_id")
+    if not session_id:
+        return
+
+    payload = {
+        "session_id": session_id,
+        "sender_id": user["id"],
+        "sender_name": user["username"],
+        "text": data.get("text", ""),
+        "timestamp": data.get("timestamp"),
+    }
+    # 같은 룸의 모든 참여자에게 전달 (발신자 포함)
+    await sio.emit("chat_message", payload, room=session_id)
+    logger.debug("채팅 — session=%s from=%s", session_id, user["username"])
+
+
+# ─────────────────────────────────────────────────────────────
+# 클립보드 동기화
+# ─────────────────────────────────────────────────────────────
+
+@sio.event
+async def clipboard_sync(sid, data):
+    """클립보드 내용 동기화
+    data: { session_id, text, target_username | controller_username }
+    """
+    user = _connected_users.get(sid)
+    if not user:
+        return
+
+    session_id = data.get("session_id")
+    # 수신 대상 (반대쪽 참여자)
+    target_username = data.get("target_username") or data.get("controller_username")
+    target_sid = _username_to_sid.get(target_username)
+    if target_sid:
+        await sio.emit("clipboard_sync", data, to=target_sid)
+        logger.debug("클립보드 동기화 — session=%s from=%s", session_id, user["username"])
+
+
+# ─────────────────────────────────────────────────────────────
+# 파일 전송 알림 (전송 시작 / 완료를 상대방에게 알림)
+# ─────────────────────────────────────────────────────────────
+
+@sio.event
+async def file_transfer_notify(sid, data):
+    """파일 전송 이벤트 알림
+    data: { session_id, event: 'started'|'completed'|'failed', transfer_id, filename, file_size }
+    """
+    session_id = data.get("session_id")
+    if session_id:
+        await sio.emit("file_transfer_notify", data, room=session_id, skip_sid=sid)
+        logger.debug(
+            "파일 전송 알림 — session=%s event=%s file=%s",
+            session_id, data.get("event"), data.get("filename"),
+        )
+
+
+# ─────────────────────────────────────────────────────────────
+# 다중 모니터 전환 요청
+# ─────────────────────────────────────────────────────────────
+
+@sio.event
+async def switch_monitor(sid, data):
+    """Controller가 Agent에게 모니터 전환 요청
+    data: { session_id, target_username, monitor_index }
+    """
+    target_username = data.get("target_username")
+    target_sid = _username_to_sid.get(target_username)
+    if target_sid:
+        await sio.emit("switch_monitor", data, to=target_sid)
+        logger.debug("모니터 전환 요청 — index=%s → %s", data.get("monitor_index"), target_username)

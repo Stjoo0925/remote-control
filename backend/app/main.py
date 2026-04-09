@@ -13,6 +13,7 @@ from app.auth.router import router as auth_router
 from app.sessions.router import router as sessions_router
 from app.sessions.signaling import sio
 from app.admin.router import router as admin_router
+from app.file_transfer.router import router as file_transfer_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s — %(message)s")
 
@@ -35,6 +36,7 @@ register_exception_handlers(app)
 app.include_router(auth_router)
 app.include_router(sessions_router)
 app.include_router(admin_router)
+app.include_router(file_transfer_router)
 
 
 @app.get("/health")

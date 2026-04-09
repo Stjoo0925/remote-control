@@ -11,6 +11,7 @@ pub struct ScreenCapturer {
     capturer: Capturer,
     width: u32,
     height: u32,
+    monitor_index: usize,
 }
 
 impl ScreenCapturer {
@@ -30,7 +31,7 @@ impl ScreenCapturer {
         let capturer = Capturer::new(display)
             .map_err(|e| RcError::CaptureError(e.to_string()))?;
 
-        Ok(Self { capturer, width, height })
+        Ok(Self { capturer, width, height, monitor_index })
     }
 
     /// 현재 프레임 캡처 (BGRA 바이트 배열 반환)
@@ -52,11 +53,22 @@ impl ScreenCapturer {
 
     pub fn width(&self) -> u32 { self.width }
     pub fn height(&self) -> u32 { self.height }
+    pub fn monitor_index(&self) -> usize { self.monitor_index }
 
     /// 연결된 모니터 수 반환
     pub fn monitor_count() -> Result<usize> {
         Display::all()
             .map(|d| d.len())
             .map_err(|e| RcError::CaptureError(e.to_string()))
+    }
+
+    /// 모니터 목록 정보 반환: [(width, height)] 인덱스 순서
+    pub fn monitor_list() -> Result<Vec<(u32, u32)>> {
+        let displays = Display::all()
+            .map_err(|e| RcError::CaptureError(e.to_string()))?;
+        Ok(displays
+            .iter()
+            .map(|d| (d.width() as u32, d.height() as u32))
+            .collect())
     }
 }

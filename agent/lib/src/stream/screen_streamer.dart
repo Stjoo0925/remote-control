@@ -225,8 +225,47 @@ class ScreenStreamer {
         final text = event['text'] as String?;
         if (text != null) await RustCore.typeText(text);
 
+      case 'switch_monitor':
+        final idx = event['monitor_index'] as int? ?? 0;
+        await _switchMonitor(idx);
+
       default:
         _logger.w('알 수 없는 입력 이벤트 타입: $type');
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  // 다중 모니터 전환
+  // ──────────────────────────────────────────────
+
+  /// Socket.IO 'switch_monitor' 이벤트 또는 DataChannel 요청으로 호출
+  Future<void> switchMonitor(int monitorIndex) async {
+    await _switchMonitor(monitorIndex);
+  }
+
+  Future<void> _switchMonitor(int monitorIndex) async {
+    _logger.i('모니터 전환 → $monitorIndex번');
+    try {
+      await RustCore.switchMonitor(monitorIndex);
+      final size = await RustCore.getScreenSize();
+      if (size.length >= 2) {
+        _screenWidth  = size[0];
+        _screenHeight = size[1];
+        _logger.i('모니터 전환 완료 — ${_screenWidth}x$_screenHeight');
+      }
+      // 화면 크기 변경을 Controller에 알림
+      if (_dataChannel?.state == RTCDataChannelState.RTCDataChannelOpen) {
+        _dataChannel!.send(RTCDataChannelMessage(
+          jsonEncode({
+            'type': 'screen_size',
+            'width': _screenWidth,
+            'height': _screenHeight,
+            'monitor_index': monitorIndex,
+          }),
+        ));
+      }
+    } catch (e) {
+      _logger.e('모니터 전환 실패: $e');
     }
   }
 

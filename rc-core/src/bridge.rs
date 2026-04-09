@@ -68,6 +68,21 @@ pub fn get_monitor_count() -> Result<usize, String> {
     ScreenCapturer::monitor_count().map_err(|e| e.to_string())
 }
 
+/// 모니터 목록 반환 — [(width, height), …] 인덱스 순서
+pub fn list_monitors() -> Result<Vec<Vec<u32>>, String> {
+    ScreenCapturer::monitor_list()
+        .map(|list| list.into_iter().map(|(w, h)| vec![w, h]).collect())
+        .map_err(|e| e.to_string())
+}
+
+/// 활성 모니터 전환 — 캡처러를 재초기화합니다.
+/// Socket.IO 'switch_monitor' 이벤트 수신 시 Agent가 호출합니다.
+pub fn switch_monitor(monitor_index: usize) -> Result<(), String> {
+    let capturer = ScreenCapturer::new(monitor_index).map_err(|e| e.to_string())?;
+    *CAPTURER.lock().unwrap() = Some(capturer);
+    Ok(())
+}
+
 // --- 입력 제어 ---
 
 /// 마우스 절대 좌표 이동
