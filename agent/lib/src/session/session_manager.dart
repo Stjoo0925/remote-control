@@ -6,11 +6,15 @@
 //   - 승인 시 ScreenStreamer에 Offer 전달 → Answer 반환 → Signaling
 //   - 긴급 종료 (Ctrl+Alt+F12)
 
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logger/logger.dart';
 
 import '../consent/consent_dialog.dart';
+import '../platform/android_service.dart';
 import '../stream/screen_streamer.dart';
+import '../tray/tray_app.dart';
 import 'signaling_client.dart';
 
 final sessionManagerProvider = Provider((ref) => SessionManager());
@@ -58,12 +62,34 @@ class SessionManager {
   String? _sessionId;
   String? _controllerUsername;
 
+  bool get _isDesktop => !Platform.isAndroid && !Platform.isIOS;
+
+  void _updateStatus(SessionStatus newStatus) {
+    _status = newStatus;
+    if (_isDesktop) {
+      TrayApp.instance.updateStatus(newStatus);
+    } else if (Platform.isAndroid) {
+      final statusStr = switch (newStatus) {
+        SessionStatus.idle    => 'idle',
+        SessionStatus.pending => 'pending',
+        SessionStatus.active  => 'active',
+        SessionStatus.ended   => 'idle',
+      };
+      AndroidService.instance.updateStatus(statusStr);
+    }
+  }
+
   // ──────────────────────────────────────────────
   // 초기화 & 연결
   // ──────────────────────────────────────────────
 
   /// 앱 시작 시 호출 — Rust Core + Signaling 서버 초기화
   Future<void> initialize() async {
+    // Android: 포그라운드 서비스 시작 (백그라운드 유지)
+    if (Platform.isAndroid) {
+      await AndroidService.instance.start();
+    }
+
     await _streamer.init();
 
     await _signaling.connect(
@@ -95,7 +121,7 @@ class SessionManager {
   /// 연결 요청 수신 → 사용자에게 승인/거부 묻기
   void _onConnectionRequest(String controllerName, String sessionId) async {
     _logger.i('연결 요청: $controllerName (session=$sessionId)');
-    _status = SessionStatus.pending;
+    _updateStatus(SessionStatus.pending);
     _controllerUsername = controllerName;
 
     final approved = await ConsentDialog.show(
@@ -105,12 +131,12 @@ class SessionManager {
 
     if (approved) {
       _sessionId = sessionId;
-      _status = SessionStatus.active;
+      _updateStatus(SessionStatus.active);
       _signaling.approveSession(sessionId);
       _signaling.joinRoom(sessionId);
       _logger.i('세션 승인: $sessionId');
     } else {
-      _status = SessionStatus.idle;
+      _updateStatus(SessionStatus.idle);
       _controllerUsername = null;
       _signaling.rejectSession(sessionId);
       _logger.i('세션 거부: $sessionId');
@@ -146,7 +172,7 @@ class SessionManager {
     _streamer.stop();
     _sessionId = null;
     _controllerUsername = null;
-    _status = SessionStatus.idle;
+    _updateStatus(SessionStatus.idle);
   }
 
   // ──────────────────────────────────────────────
@@ -159,7 +185,7 @@ class SessionManager {
       _streamer.stop();
       _sessionId = null;
       _controllerUsername = null;
-      _status = SessionStatus.idle;
+      _updateStatus(SessionStatus.idle);
       _logger.w('세션 강제 종료');
     }
   }
