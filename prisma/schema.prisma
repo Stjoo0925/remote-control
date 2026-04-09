@@ -1,0 +1,146 @@
+// Prisma schema for remote-control
+// Used for database migrations and schema management
+// ORM queries continue to use SQLAlchemy in the Python backend
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Users & Authentication
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+model User {
+  id          String    @id @db.Uuid
+  username    String    @unique
+  email       String
+  displayName String    @map("display_name")
+  role        UserRole  @default(USER)
+  isActive    Boolean   @default(true) @map("is_active")
+  lastLogin   DateTime? @map("last_login")
+  createdAt   DateTime  @map("created_at")
+
+  // Relations
+  auditLogs       AuditLog[]
+  sessionController Session[] @relation("controller")
+  sessionTarget     Session[] @relation("target")
+  fileTransfers     FileTransfer[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN    @map("admin")
+  SUPPORT  @map("support")
+  USER     @map("user")
+
+  @@map("user_role")
+}
+
+model AuditLog {
+  id        String    @id @db.Uuid
+  userId    String?   @map("user_id") @db.Uuid
+  action    String
+  target    String?
+  ipAddress String?   @map("ip_address")
+  details   Json?
+  createdAt DateTime  @map("created_at")
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("audit_logs")
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Sessions & Remote Control
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+model Session {
+  id          String        @id @db.Uuid
+  controllerId String       @map("controller_id") @db.Uuid
+  targetId    String        @map("target_id") @db.Uuid
+  status      SessionStatus @default(PENDING)
+  startedAt   DateTime?     @map("started_at")
+  endedAt     DateTime?     @map("ended_at")
+  controllerIp String?      @map("controller_ip")
+  targetIp    String?       @map("target_ip")
+  createdAt   DateTime      @map("created_at")
+
+  // Relations
+  controller   User @relation("controller", fields: [controllerId], references: [id])
+  target       User @relation("target", fields: [targetId], references: [id])
+  events       SessionEvent[]
+  fileTransfers FileTransfer[]
+
+  @@map("sessions")
+}
+
+enum SessionStatus {
+  PENDING   @map("pending")
+  ACTIVE    @map("active")
+  ENDED     @map("ended")
+  REJECTED  @map("rejected")
+
+  @@map("session_status")
+}
+
+model SessionEvent {
+  id        String    @id @db.Uuid
+  sessionId String    @map("session_id") @db.Uuid
+  eventType String    @map("event_type")
+  payload   Json?
+  createdAt DateTime  @map("created_at")
+
+  // Relations
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("session_events")
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// File Transfers
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+model FileTransfer {
+  id              String            @id @db.Uuid
+  sessionId       String            @map("session_id") @db.Uuid
+  senderId        String            @map("sender_id") @db.Uuid
+  direction       TransferDirection
+  filename        String
+  mimeType        String            @map("mime_type") @default("application/octet-stream")
+  fileSize        BigInt            @map("file_size")
+  transferredBytes BigInt           @map("transferred_bytes") @default(0)
+  status          TransferStatus    @default(PENDING)
+  storagePath     String?           @map("storage_path")
+  createdAt       DateTime          @map("created_at")
+  completedAt     DateTime?         @map("completed_at")
+
+  // Relations
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sender  User    @relation(fields: [senderId], references: [id])
+
+  @@map("file_transfers")
+}
+
+enum TransferDirection {
+  CONTROLLER_TO_TARGET @map("controller_to_target")
+  TARGET_TO_CONTROLLER @map("target_to_controller")
+
+  @@map("transfer_direction")
+}
+
+enum TransferStatus {
+  PENDING      @map("pending")
+  IN_PROGRESS  @map("in_progress")
+  COMPLETED    @map("completed")
+  FAILED       @map("failed")
+  CANCELLED    @map("cancelled")
+
+  @@map("transfer_status")
+}

@@ -5,7 +5,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=["../../.env", ".env"],  # Root .env first, then backend/.env as fallback
+        env_file_encoding="utf-8",
+        extra="ignore"
+    )
 
     # 앱
     APP_ENV: str = "development"
@@ -18,6 +22,7 @@ class Settings(BaseSettings):
     POSTGRES_DB: str = "remote_control"
     POSTGRES_USER: str = "rc_user"
     POSTGRES_PASSWORD: str = "change_me"
+    DATABASE_URL: str = ""  # Optional: For Prisma migrations
 
     @property
     def database_url(self) -> str:

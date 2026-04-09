@@ -68,7 +68,7 @@ class TestMe:
     @pytest.mark.asyncio
     async def test_토큰_없으면_401(self, client: AsyncClient):
         res = await client.get("/api/auth/me")
-        assert res.status_code == 403  # HTTPBearer가 403 반환
+        assert res.status_code == 401  # FastAPI 0.135+ HTTPBearer returns 401
 
     @pytest.mark.asyncio
     async def test_잘못된_토큰_401(self, client: AsyncClient):

@@ -1,0 +1,14 @@
+{
+  "name": "remote-control-prisma",
+  "private": true,
+  "scripts": {
+    "migrate:dev": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "migrate:status": "prisma migrate status",
+    "db:push": "prisma db push",
+    "generate": "prisma generate"
+  },
+  "devDependencies": {
+    "prisma": "^6.0.0"
+  }
+}
