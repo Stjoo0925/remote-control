@@ -17,6 +17,9 @@ dependencies:
   socket_io_client: ^2.0.3
   http: ^1.2.0
 
+  # WebRTC (화면 스트리밍 + 데이터 채널)
+  flutter_webrtc: ^0.10.0
+
   # 시스템 트레이 (데스크탑)
   system_tray: ^2.0.3
   window_manager: ^0.3.8
