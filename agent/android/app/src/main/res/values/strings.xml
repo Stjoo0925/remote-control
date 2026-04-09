@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Remote Control Agent</string>
+    <string name="accessibility_service_description">Allows trusted operators to send remote input during an approved support session.</string>
+</resources>

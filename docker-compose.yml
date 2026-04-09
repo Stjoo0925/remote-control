@@ -1,4 +1,26 @@
-version: "3.9"
+x-backend-env: &backend-env
+  APP_HOST: ${APP_HOST:-0.0.0.0}
+  APP_PORT: ${APP_PORT:-8000}
+  APP_ENV: ${APP_ENV:-production}
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+  POSTGRES_DB: ${POSTGRES_DB:-remote_control}
+  POSTGRES_USER: ${POSTGRES_USER:-rc_user}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+  REDIS_URL: redis://redis:6379/0
+  JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change_me_to_strong_random_secret}
+  JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-15}
+  JWT_REFRESH_TOKEN_EXPIRE_HOURS: ${JWT_REFRESH_TOKEN_EXPIRE_HOURS:-8}
+  JWT_ALGORITHM: ${JWT_ALGORITHM:-RS256}
+  LDAP_SERVER: ${LDAP_SERVER:-ldap://ldap.corp.local}
+  LDAP_BASE_DN: ${LDAP_BASE_DN:-DC=corp,DC=local}
+  LDAP_BIND_DN: ${LDAP_BIND_DN:-CN=svc-remote,OU=ServiceAccounts,DC=corp,DC=local}
+  LDAP_BIND_PASSWORD: ${LDAP_BIND_PASSWORD:-change_me}
+  TURN_SERVER: ${TURN_SERVER:-turn:turn.corp.local:3478}
+  TURN_USERNAME: ${TURN_USERNAME:-remote_user}
+  TURN_PASSWORD: ${TURN_PASSWORD:-change_me}
+  VITE_API_BASE_URL: ${VITE_API_BASE_URL:-https://remote.corp.local/api}
+  VITE_WS_URL: ${VITE_WS_URL:-wss://remote.corp.local}
 
 services:
   nginx:
@@ -16,7 +38,7 @@ services:
 
   backend:
     build: ./backend
-    env_file: .env
+    environment: *backend-env
     depends_on:
       - postgres
       - redis
@@ -57,8 +79,8 @@ services:
 
   celery:
     build: ./backend
-    command: celery -A app.notifications.tasks worker --loglevel=info
-    env_file: .env
+    command: celery -A app.notifications.tasks:celery_app worker --loglevel=info
+    environment: *backend-env
     depends_on:
       - redis
       - postgres
