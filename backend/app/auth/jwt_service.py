@@ -8,15 +8,25 @@ from app.config import settings
 
 
 class JWTService:
-    def create_access_token(self, user_id: str, username: str, role: str) -> str:
+    def create_access_token(
+        self,
+        user_id: str,
+        username: str,
+        role: str,
+        extra_claims: Optional[dict] = None,
+        expires_minutes: Optional[int] = None,
+    ) -> str:
+        minutes = expires_minutes if expires_minutes is not None else settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES
         payload = {
             "sub": user_id,
             "username": username,
             "role": role,
             "type": "access",
-            "exp": datetime.now(timezone.utc) + timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
+            "exp": datetime.now(timezone.utc) + timedelta(minutes=minutes),
             "iat": datetime.now(timezone.utc),
         }
+        if extra_claims:
+            payload.update(extra_claims)
         return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
     def create_refresh_token(self, user_id: str) -> str:

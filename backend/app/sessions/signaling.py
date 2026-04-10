@@ -25,20 +25,40 @@ _username_to_sid: dict[str, str] = {}
 
 @sio.event
 async def connect(sid, environ, auth):
-    """연결 시 JWT 검증"""
+    """연결 시 JWT 검증. 일반 access 토큰과 페어링 토큰(type=pairing) 모두 허용."""
     token = (auth or {}).get("token")
     payload = jwt_service.verify_token(token) if token else None
 
-    if not payload or payload.get("type") != "access":
+    if not payload or payload.get("type") not in ("access", "pairing"):
         logger.warning("Signaling: 인증 실패 — sid=%s", sid)
         return False  # 연결 거부
 
-    user_info = {"id": payload["sub"], "username": payload["username"], "role": payload["role"]}
+    user_info = {
+        "id": payload["sub"],
+        "username": payload["username"],
+        "role": payload["role"],
+        # 페어링 연결일 때 Controller 정보 포함
+        "controller_username": payload.get("controller_username"),
+        "is_pairing": payload.get("type") == "pairing",
+        "device_name": payload.get("device_name"),
+    }
     _connected_users[sid] = user_info
     _username_to_sid[payload["username"]] = sid
 
-    logger.info("Signaling: 연결 — %s (sid=%s)", payload["username"], sid)
+    logger.info(
+        "Signaling: 연결 — %s (sid=%s, pairing=%s)",
+        payload["username"], sid, user_info["is_pairing"],
+    )
     await sio.emit("connected", {"message": "Signaling 서버에 연결됐습니다."}, to=sid)
+
+    # 페어링 연결이면 Controller에게 에이전트 입장 알림
+    if user_info["is_pairing"] and user_info["controller_username"]:
+        controller_sid = _username_to_sid.get(user_info["controller_username"])
+        if controller_sid:
+            await sio.emit("pairing_agent_connected", {
+                "agent_username": payload["username"],
+                "device_name": payload.get("device_name", "Unknown"),
+            }, to=controller_sid)
 
 
 @sio.event
