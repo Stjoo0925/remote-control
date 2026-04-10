@@ -39,14 +39,17 @@ interface InputEvent {
 // STUN/TURN 서버 설정 (환경변수에서 주입)
 // ─────────────────────────────────────────────────────────────
 
+// 구글 공개 STUN을 기본으로 사용해 인터넷 어디서나 동작합니다.
+// VITE_TURN_URL을 설정하면 자체 TURN 릴레이를 추가합니다.
 const ICE_SERVERS: RTCIceServer[] = [
-  { urls: import.meta.env.VITE_STUN_URL ?? "stun:stun.corp.local:3478" },
+  { urls: import.meta.env.VITE_STUN_URL ?? "stun:stun.l.google.com:19302" },
+  { urls: "stun:stun1.l.google.com:19302" },
   ...(import.meta.env.VITE_TURN_URL
     ? [
         {
           urls: import.meta.env.VITE_TURN_URL as string,
-          username: import.meta.env.VITE_TURN_USER ?? "rc",
-          credential: import.meta.env.VITE_TURN_PASS ?? "rc-secret",
+          username: import.meta.env.VITE_TURN_USER ?? "",
+          credential: import.meta.env.VITE_TURN_PASS ?? "",
         },
       ]
     : []),

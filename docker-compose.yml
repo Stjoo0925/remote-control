@@ -12,16 +12,22 @@ x-backend-env: &backend-env
   JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change_me_to_strong_random_secret}
   JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-15}
   JWT_REFRESH_TOKEN_EXPIRE_HOURS: ${JWT_REFRESH_TOKEN_EXPIRE_HOURS:-8}
-  JWT_ALGORITHM: ${JWT_ALGORITHM:-RS256}
-  LDAP_SERVER: ${LDAP_SERVER:-ldap://ldap.corp.local}
-  LDAP_BASE_DN: ${LDAP_BASE_DN:-DC=corp,DC=local}
-  LDAP_BIND_DN: ${LDAP_BIND_DN:-CN=svc-remote,OU=ServiceAccounts,DC=corp,DC=local}
-  LDAP_BIND_PASSWORD: ${LDAP_BIND_PASSWORD:-change_me}
-  TURN_SERVER: ${TURN_SERVER:-turn:turn.corp.local:3478}
-  TURN_USERNAME: ${TURN_USERNAME:-remote_user}
-  TURN_PASSWORD: ${TURN_PASSWORD:-change_me}
-  VITE_API_BASE_URL: ${VITE_API_BASE_URL:-https://remote.corp.local/api}
-  VITE_WS_URL: ${VITE_WS_URL:-wss://remote.corp.local}
+  JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+  # 인증 모드: local(기본) / ldap / both
+  AUTH_MODE: ${AUTH_MODE:-local}
+  ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
+  # LDAP (AUTH_MODE=ldap/both 일 때만 설정 필요)
+  LDAP_SERVER: ${LDAP_SERVER:-}
+  LDAP_BASE_DN: ${LDAP_BASE_DN:-}
+  LDAP_BIND_DN: ${LDAP_BIND_DN:-}
+  LDAP_BIND_PASSWORD: ${LDAP_BIND_PASSWORD:-}
+  # TURN/STUN (기본: 구글 공개 STUN, TURN 릴레이가 필요하면 교체)
+  TURN_SERVERS: ${TURN_SERVERS:-stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302}
+  TURN_USERNAME: ${TURN_USERNAME:-}
+  TURN_PASSWORD: ${TURN_PASSWORD:-}
+  TURN_PUBLIC_IP: ${TURN_PUBLIC_IP:-}
+  # CORS: 기본 전체 허용, 운영 환경에서 도메인 고정 권장
+  CORS_ORIGINS: ${CORS_ORIGINS:-["*"]}
 
 services:
   nginx:
@@ -49,6 +55,14 @@ services:
 
   frontend:
     build: ./frontend
+    environment:
+      # 빈 값으로 설정 시 런타임에 현재 호스트를 사용
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+      VITE_WS_URL: ${VITE_WS_URL:-}
+      VITE_STUN_URL: ${VITE_STUN_URL:-stun:stun.l.google.com:19302}
+      VITE_TURN_URL: ${VITE_TURN_URL:-}
+      VITE_TURN_USER: ${VITE_TURN_USER:-}
+      VITE_TURN_PASS: ${VITE_TURN_PASS:-}
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -56,9 +70,9 @@ services:
   postgres:
     image: postgres:15-alpine
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-remote_control}
+      POSTGRES_USER: ${POSTGRES_USER:-rc_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -76,6 +90,14 @@ services:
     network_mode: host
     volumes:
       - ./infra/coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro
+    # 공인 IP가 있으면 자동으로 external-ip 설정
+    command: >
+      sh -c "
+        if [ -n '${TURN_PUBLIC_IP}' ]; then
+          echo 'external-ip=${TURN_PUBLIC_IP}' >> /etc/coturn/turnserver.conf;
+        fi;
+        exec turnserver -c /etc/coturn/turnserver.conf
+      "
     restart: unless-stopped
 
   celery:

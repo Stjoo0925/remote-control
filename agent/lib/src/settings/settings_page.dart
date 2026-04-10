@@ -45,8 +45,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   Future<void> _loadSaved() async {
-    _serverCtrl.text =
-        await _storage.read(key: 'server_url') ?? 'https://remote.corp.local';
+    _serverCtrl.text = await _storage.read(key: 'server_url') ?? '';
     _usernameCtrl.text = await _storage.read(key: 'username') ?? '';
 
     // 저장된 토큰이 있으면 이미 연결 시도 중
@@ -66,7 +65,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final password = _passwordCtrl.text;
 
     if (server.isEmpty || username.isEmpty || password.isEmpty) {
-      setState(() => _errorMsg = '서버 주소, 사번, 비밀번호를 모두 입력해 주세요.');
+      setState(() => _errorMsg = '서버 주소, 아이디, 비밀번호를 모두 입력해 주세요.');
       return;
     }
 
@@ -169,7 +168,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             _sectionLabel('서버 설정'),
             _textField(
               controller: _serverCtrl,
-              hint: 'https://remote.corp.local',
+              hint: 'https://your-server.com',
               label: '서버 주소',
               icon: Icons.dns_outlined,
             ),
@@ -179,14 +178,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             _sectionLabel('계정'),
             _textField(
               controller: _usernameCtrl,
-              hint: 'hong.gildong',
-              label: '사번 / 아이디',
+              hint: 'username',
+              label: '아이디',
               icon: Icons.person_outline,
             ),
             const SizedBox(height: 12),
             _textField(
               controller: _passwordCtrl,
-              hint: '사내 LDAP 비밀번호',
+              hint: '비밀번호',
               label: '비밀번호',
               icon: Icons.lock_outline,
               obscure: _obscurePassword,
@@ -479,7 +478,8 @@ class _HintText extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Text(
       '이 기기가 원격 연결 대상(피제어측)입니다.\n'
-      '사내 LDAP 계정으로 로그인하면 IT 지원팀이 원격으로 접속을 요청할 수 있습니다.\n'
+      '서버에 등록된 계정으로 로그인하거나, 페어링 코드를 받아 입력하면\n'
+      '원격 접속 요청을 받을 수 있습니다.\n'
       '연결 전 반드시 사용자의 승인이 필요합니다.',
       style: TextStyle(
           color: Color(0xFF475569), fontSize: 12, height: 1.6),

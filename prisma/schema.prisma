@@ -88,20 +88,23 @@ model AuditLog {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 model Session {
-  id          String        @id @db.Uuid
-  controllerId String       @map("controller_id") @db.Uuid
-  targetId    String        @map("target_id") @db.Uuid
-  status      SessionStatus @default(PENDING)
-  startedAt   DateTime?     @map("started_at")
-  endedAt     DateTime?     @map("ended_at")
-  controllerIp String?      @map("controller_ip")
-  targetIp    String?       @map("target_ip")
-  createdAt   DateTime      @map("created_at")
+  id               String        @id @db.Uuid
+  controllerId     String        @map("controller_id") @db.Uuid
+  // 계정 기반: targetId 사용 / 페어링·디바이스 기반: null 허용
+  targetId         String?       @map("target_id") @db.Uuid
+  // 페어링/디바이스 기반 연결 시 장치명이나 식별자 저장
+  targetIdentifier String?       @map("target_identifier")
+  status           SessionStatus @default(PENDING)
+  startedAt        DateTime?     @map("started_at")
+  endedAt          DateTime?     @map("ended_at")
+  controllerIp     String?       @map("controller_ip")
+  targetIp         String?       @map("target_ip")
+  createdAt        DateTime      @map("created_at")
 
   // Relations
-  controller   User @relation("controller", fields: [controllerId], references: [id])
-  target       User @relation("target", fields: [targetId], references: [id])
-  events       SessionEvent[]
+  controller    User          @relation("controller", fields: [controllerId], references: [id])
+  target        User?         @relation("target", fields: [targetId], references: [id])
+  events        SessionEvent[]
   fileTransfers FileTransfer[]
 
   @@map("sessions")

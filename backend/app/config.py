@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=["../../.env", ".env"],  # Root .env first, then backend/.env as fallback
+        env_file=["../../.env", ".env"],
         env_file_encoding="utf-8",
         extra="ignore"
     )
@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     POSTGRES_DB: str = "remote_control"
     POSTGRES_USER: str = "rc_user"
     POSTGRES_PASSWORD: str = "change_me"
-    DATABASE_URL: str = ""  # Optional: For Prisma migrations
+    DATABASE_URL: str = ""
 
     @property
     def database_url(self) -> str:
@@ -40,40 +40,34 @@ class Settings(BaseSettings):
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     JWT_REFRESH_TOKEN_EXPIRE_HOURS: int = 8
 
-    # 인증 모드
-    # "ldap"  — 사내 Active Directory만 사용 (기본)
-    # "local" — 이메일/비밀번호 로컬 계정만 사용
-    # "both"  — LDAP 우선, 실패 시 로컬 계정 시도
-    AUTH_MODE: str = "both"
+    # ── 인증 모드 ────────────────────────────────────────────────────────────
+    # "local" — 이메일/비밀번호 (기본값, 인터넷 배포 권장)
+    # "ldap"  — 사내 Active Directory만 사용
+    # "both"  — 로컬 우선, 실패 시 LDAP 시도
+    AUTH_MODE: str = "local"
 
-    # 로컬 계정 자유 가입 허용 여부 (AUTH_MODE가 local/both일 때만 적용)
-    # False이면 관리자가 계정을 직접 생성해야 함
+    # 로컬 계정 자유 가입 허용 여부
     ALLOW_REGISTRATION: bool = True
 
-    # LDAP
-    LDAP_SERVER: str = "ldap://ldap.corp.local"
-    LDAP_BASE_DN: str = "DC=corp,DC=local"
-    LDAP_BIND_DN: str = "CN=svc-remote,OU=ServiceAccounts,DC=corp,DC=local"
-    LDAP_BIND_PASSWORD: str = "change_me"
+    # ── LDAP (AUTH_MODE=ldap/both 일 때만 사용, 없어도 앱은 정상 동작) ───────
+    LDAP_SERVER: str = ""
+    LDAP_BASE_DN: str = ""
+    LDAP_BIND_DN: str = ""
+    LDAP_BIND_PASSWORD: str = ""
 
-    # TURN / STUN 서버 설정
-    # 단일 서버 주소 또는 쉼표로 구분된 복수 주소 지원
-    # 예) "turn:my-server.example.com:3478,stun:stun.l.google.com:19302"
-    TURN_SERVERS: str = "turn:turn.corp.local:3478"
-    TURN_USERNAME: str = "remote_user"
-    TURN_PASSWORD: str = "change_me"
-
-    # coturn 공개 IP (인터넷 배포 시 설정)
-    # 비워 두면 coturn이 자동 감지 시도
+    # ── TURN / STUN 서버 ─────────────────────────────────────────────────────
+    # 기본값: 구글 공개 STUN (무료, 인터넷 어디서나 사용 가능)
+    # 실제 TURN 릴레이가 필요하면 자체 coturn 서버 주소로 변경
+    # 예) "turn:my-server.com:3478,stun:stun.l.google.com:19302"
+    TURN_SERVERS: str = "stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302"
+    TURN_USERNAME: str = ""
+    TURN_PASSWORD: str = ""
     TURN_PUBLIC_IP: str = ""
 
-    # CORS 허용 도메인 (쉼표 없이 list로 관리)
-    # 인터넷 서비스 시 실제 도메인 또는 "*"로 설정
-    CORS_ORIGINS: list[str] = [
-        "https://remote.corp.local",
-        "http://localhost:3000",
-        "http://localhost:5173",
-    ]
+    # ── CORS ────────────────────────────────────────────────────────────────
+    # 기본값: 모든 오리진 허용 (TeamViewer처럼 어디서나 접속)
+    # 운영 환경에서 도메인을 고정하려면: ["https://your-domain.com"]
+    CORS_ORIGINS: list[str] = ["*"]
 
 
 settings = Settings()

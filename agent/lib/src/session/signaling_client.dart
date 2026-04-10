@@ -66,10 +66,14 @@ class SignalingClient {
   }) async {
     _callbacks = callbacks;
 
-    final serverUrl =
-        await _storage.read(key: 'server_url') ?? 'https://remote.corp.local';
+    final serverUrl = await _storage.read(key: 'server_url') ?? '';
     final token = await _storage.read(key: 'access_token');
     _myUsername = await _storage.read(key: 'username');
+
+    if (serverUrl.isEmpty) {
+      _logger.e('서버 주소가 설정되지 않았습니다. 설정 화면에서 서버 주소를 입력해 주세요.');
+      return;
+    }
 
     _socket = io.io(serverUrl, <String, dynamic>{
       'transports': ['websocket'],

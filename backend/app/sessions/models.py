@@ -26,7 +26,12 @@ class Session(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     controller_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    target_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+
+    # 계정 기반 연결: target_id 사용 (기존)
+    # 디바이스/페어링 기반 연결: target_id=NULL, target_identifier에 장치명 저장
+    target_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    target_identifier: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+
     status: Mapped[SessionStatus] = mapped_column(Enum(SessionStatus), default=SessionStatus.pending)
     started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -48,14 +53,18 @@ class SessionEvent(Base):
 # ── Pydantic 스키마 ─────────────────────────────────────
 
 class CreateSessionRequest(BaseModel):
-    target_username: str
+    # 계정 기반 연결 (기존 사용자)
+    target_username: Optional[str] = None
+    # 페어링/디바이스 기반 연결 (계정 불필요)
+    target_identifier: Optional[str] = None
 
 
 class SessionResponse(BaseModel):
     id: uuid.UUID
     status: SessionStatus
     controller_id: uuid.UUID
-    target_id: uuid.UUID
+    target_id: Optional[uuid.UUID]
+    target_identifier: Optional[str]
     started_at: Optional[datetime]
     created_at: datetime
 
