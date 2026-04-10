@@ -19,6 +19,11 @@ class UserRole(str, enum.Enum):
     user = "user"
 
 
+class AuthProvider(str, enum.Enum):
+    ldap = "ldap"
+    local = "local"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -27,6 +32,10 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), nullable=False)
     display_name: Mapped[str] = mapped_column(String(200), nullable=False)
     role: Mapped[UserRole] = mapped_column(Enum(UserRole), default=UserRole.user, nullable=False)
+    auth_provider: Mapped[AuthProvider] = mapped_column(
+        Enum(AuthProvider), default=AuthProvider.ldap, nullable=False
+    )
+    password_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     last_login: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
@@ -48,6 +57,13 @@ class AuditLog(Base):
 
 class LoginRequest(BaseModel):
     username: str
+    password: str
+
+
+class RegisterRequest(BaseModel):
+    username: str
+    email: str
+    display_name: str
     password: str
 
 

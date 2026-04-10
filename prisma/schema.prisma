@@ -16,20 +16,23 @@ datasource db {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 model User {
-  id          String    @id @db.Uuid
-  username    String    @unique
-  email       String
-  displayName String    @map("display_name")
-  role        UserRole  @default(USER)
-  isActive    Boolean   @default(true) @map("is_active")
-  lastLogin   DateTime? @map("last_login")
-  createdAt   DateTime  @map("created_at")
+  id           String       @id @db.Uuid
+  username     String       @unique
+  email        String
+  displayName  String       @map("display_name")
+  role         UserRole     @default(USER)
+  authProvider AuthProvider @default(LDAP) @map("auth_provider")
+  passwordHash String?      @map("password_hash")
+  isActive     Boolean      @default(true) @map("is_active")
+  lastLogin    DateTime?    @map("last_login")
+  createdAt    DateTime     @map("created_at")
 
   // Relations
-  auditLogs       AuditLog[]
-  sessionController Session[] @relation("controller")
-  sessionTarget     Session[] @relation("target")
+  auditLogs         AuditLog[]
+  sessionController Session[]     @relation("controller")
+  sessionTarget     Session[]     @relation("target")
   fileTransfers     FileTransfer[]
+  pairingCodes      PairingCode[]
 
   @@map("users")
 }
@@ -40,6 +43,29 @@ enum UserRole {
   USER     @map("user")
 
   @@map("user_role")
+}
+
+enum AuthProvider {
+  LDAP  @map("ldap")
+  LOCAL @map("local")
+
+  @@map("auth_provider")
+}
+
+// 페어링 코드 — 외부 기기(다른 IP)가 계정 없이 세션에 참여할 때 사용
+model PairingCode {
+  id          String   @id @db.Uuid
+  code        String   @unique
+  creatorId   String   @map("creator_id") @db.Uuid
+  sessionNote String?  @map("session_note")
+  usedAt      DateTime? @map("used_at")
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @map("created_at")
+
+  // Relations
+  creator User @relation(fields: [creatorId], references: [id])
+
+  @@map("pairing_codes")
 }
 
 model AuditLog {
